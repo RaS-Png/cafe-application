@@ -1,4 +1,43 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class CoffeeItem {
+  final String id;
+  final String name;
+  final String description;
+  final double price;
+  final String imageUrl;
+
+  CoffeeItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.imageUrl,
+  });
+
+  factory CoffeeItem.fromJson(Map<String, dynamic> json) {
+    return CoffeeItem(
+      id: json['id'],
+      name: json['name'],
+      description: json['description'],
+      price: double.parse(json['price'].toString()),
+      imageUrl: json['imageUrl'],
+    );
+  }
+}
+
+Future<List<CoffeeItem>> fetchCoffeeItems() async {
+  final response = await http.get(Uri.parse('http://localhost/cafe-api/'));
+
+  if (response.statusCode == 200) {
+    List<dynamic> jsonData = jsonDecode(response.body);
+    return jsonData.map((item) => CoffeeItem.fromJson(item)).toList();
+  } else {
+    throw Exception('Failed to load coffee items');
+  }
+}
 
 void main() {
   runApp(const MyApp());
@@ -20,234 +59,230 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class CoffeeShopScreen extends StatelessWidget {
+class CoffeeShopScreen extends StatefulWidget {
   const CoffeeShopScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> coffeeItems = [
-      {
-        'name': 'Caffe Mocha',
-        'description': 'Deep Foam',
-        'price': 4.53,
-        'rating': 4.8
-      },
-      {
-        'name': 'Flat White',
-        'description': 'Espresso',
-        'price': 3.53,
-        'rating': 4.6
-      },
-      {
-        'name': 'Caramel Macchiato',
-        'description': 'Extra Caramel',
-        'price': 4.99,
-        'rating': 4.7
-      },
-      {
-        'name': 'Americano',
-        'description': 'Double Shot',
-        'price': 3.29,
-        'rating': 4.5
-      },
-      {
-        'name': 'Cappuccino',
-        'description': 'Italian Style',
-        'price': 4.25,
-        'rating': 4.9
-      },
-      {
-        'name': 'Cold Brew',
-        'description': '24hr Brewed',
-        'price': 4.75,
-        'rating': 4.6
-      },
-      {
-        'name': 'Espresso',
-        'description': 'Single Origin',
-        'price': 2.99,
-        'rating': 4.7
-      },
-      {
-        'name': 'Vanilla Latte',
-        'description': 'French Vanilla',
-        'price': 4.49,
-        'rating': 4.5
-      },
-      {
-        'name': 'Irish Coffee',
-        'description': 'Cream Top',
-        'price': 5.29,
-        'rating': 4.8
-      },
-      {
-        'name': 'Affogato',
-        'description': 'With Ice Cream',
-        'price': 5.99,
-        'rating': 4.9
-      },
-    ];
+  State<CoffeeShopScreen> createState() => _CoffeeShopScreenState();
+}
 
+class _CoffeeShopScreenState extends State<CoffeeShopScreen> {
+  late Future<List<CoffeeItem>> futureCoffeeItems;
+  List<CoffeeItem> allCoffeeItems = [];
+  List<CoffeeItem> filteredCoffeeItems = [];
+  TextEditingController searchController = TextEditingController();
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadCoffeeItems();
+  }
+
+  void loadCoffeeItems() async {
+    try {
+      final items = await fetchCoffeeItems();
+      setState(() {
+        allCoffeeItems = items;
+        filteredCoffeeItems = items;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      debugPrint('Error loading coffee items: $e');
+    }
+  }
+
+  void searchCoffee(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        filteredCoffeeItems = allCoffeeItems;
+      } else {
+        filteredCoffeeItems = allCoffeeItems
+            .where((coffee) =>
+                coffee.name.toLowerCase().contains(query.toLowerCase()) ||
+                coffee.description.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              color: Color.fromARGB(255, 19, 19, 19),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Location Section
-                    const Row(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Location',
-                                style: TextStyle(
-                                    color: Colors.grey, fontSize: 12)),
-                            Row(
-                              children: [
-                                Text(
-                                  'Tokyo, Japan',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                Icon(Icons.keyboard_arrow_down,
-                                    size: 20, color: Colors.white),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Search Section
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[800],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const TextField(
-                              style: TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                icon: Icon(Icons.search, color: Colors.grey),
-                                hintText: 'Search coffee',
-                                hintStyle: TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orangeAccent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.tune, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Banner Section
-                    Container(
-                      height: 120,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.brown[200],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Stack(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                color: const Color.fromARGB(255, 19, 19, 19),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      // Location Section
+                      const Row(
                         children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.only(
-                                bottomRight: Radius.circular(16),
-                              ),
-                              child: Image(
-                                image: AssetImage('assets/images/banner.png'),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Sip the flavor,\nfeel the art.',
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Location',
                                   style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+                                      color: Colors.grey, fontSize: 12)),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Tokyo, Japan',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                  Icon(Icons.keyboard_arrow_down,
+                                      size: 20, color: Colors.white),
+                                ],
+                              ),
+                            ],
                           ),
                         ],
                       ),
+                      const SizedBox(height: 20),
+                      // Search Section
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[800],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: TextField(
+                                controller: searchController,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  icon: Icon(Icons.search, color: Colors.grey),
+                                  hintText: 'Search coffee',
+                                  hintStyle: TextStyle(color: Colors.grey),
+                                ),
+                                onChanged: searchCoffee,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orangeAccent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.tune, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Banner Section
+                      Container(
+                        height: 120,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.brown[200],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.only(
+                                  bottomRight: Radius.circular(16),
+                                ),
+                                child: Image(
+                                  image: AssetImage('assets/images/banner.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Sip the flavor,\nfeel the art.',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildCategoryChip('All Coffee', true),
+                          _buildCategoryChip('Macchiato', false),
+                          _buildCategoryChip('Latte', false),
+                          _buildCategoryChip('Americano', false),
+                        ],
+                      ),
                     ),
+                    const SizedBox(height: 16),
+                    // Coffee Grid
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : filteredCoffeeItems.isEmpty
+                            ? const Center(
+                                child: Text('No coffee found',
+                                    style: TextStyle(
+                                        fontSize: 16, color: Colors.grey)))
+                            : GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.8,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                                itemCount: filteredCoffeeItems.length,
+                                itemBuilder: (context, index) {
+                                  final coffee = filteredCoffeeItems[index];
+                                  return _buildCoffeeCard(
+                                    coffee.name,
+                                    coffee.description,
+                                    coffee.price,
+                                    coffee.imageUrl,
+                                  );
+                                },
+                              ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildCategoryChip('All Coffee', true),
-                        _buildCategoryChip('Macchiato', false),
-                        _buildCategoryChip('Latte', false),
-                        _buildCategoryChip('Americano', false),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.8,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: coffeeItems.length,
-                  itemBuilder: (context, index) {
-                    final coffee = coffeeItems[index];
-                    return _buildCoffeeCard(
-                      coffee['name'],
-                      coffee['description'],
-                      coffee['price'],
-                      coffee['rating'],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -285,75 +320,84 @@ class CoffeeShopScreen extends StatelessWidget {
   }
 
   Widget _buildCoffeeCard(
-      String name, String description, double price, double rating) {
+    String name,
+    String description,
+    double price,
+    String imageUrl,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16)),
-                child: Image.network(
-                  'https://via.placeholder.com/150',
-                  height: 120,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.error),
+                  );
+                },
               ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.yellow, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        rating.toString(),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(description,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text('\$${price.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Rp $price',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[300],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
